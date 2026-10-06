@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIRKADU - Dashboard Monitoring</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div id="toasts"></div>
+<div class="layout">
+<aside>
+  <h2>🌱 SIRKADU</h2>
+  <div class="sub">Siram Kadu Hideung Terpadu<br>Ma'had Al-Zaytun</div>
+  <div class="menu">
+    <button class="on" data-pg="dashboard">🏠 Dashboard</button>
+    <button data-pg="irigasi">💧 Monitoring Irigasi</button>
+    <button data-pg="grafik">📈 Grafik</button>
+    <button data-pg="peta">🗺️ Peta Lahan</button>
+    <button data-pg="drone">📷 Monitoring Drone</button>
+    <button data-pg="cek">🔍 Pengecekan Pohon</button>
+    <button data-pg="riwayat">🕘 Riwayat</button>
+    <button data-pg="kontrol">🎛️ Kontrol Manual</button>
+    <button data-pg="notif">🔔 Notifikasi</button>
+    <button data-pg="aturan">⚙️ Pengaturan</button>
+  </div>
+  <div class="sysbox">
+    INFORMASI SISTEM<br><br>
+    Server: Laptop/PC<br>
+    Gateway: Pi Pico<br>
+    Node Aktif: <b id="sysNode">0/0</b><br>
+    Serial: <span class="pill ok" id="sysStat">ONLINE</span><br>
+    <span class="muted" id="sysAI">AI: -</span>
+  </div>
+</aside>
+
+<main>
+<header>
+  <div><h1>DASHBOARD MONITORING</h1>
+  <div class="sub">Sistem Penyiraman Otomatis & Monitoring Durian Kadu Hideung</div></div>
+  <div class="hchips">
+    <div class="chip" id="clock">-</div>
+    <div class="chip" id="wchip">Cuaca: -</div>
+    <div class="chip">👤 Admin</div>
+  </div>
+</header>
+
+<section id="dashboard" class="page on">
+  <h3 class="sec">RINGKASAN IRIGASI</h3>
+  <div class="grid">
+    <div class="card"><div class="muted">Rata-rata Kelembapan</div><div class="value" id="rAvg">-</div><div class="muted" id="rAvgS">-</div></div>
+    <div class="card"><div class="muted">Suhu Udara (Indramayu)</div><div class="value" id="rTemp">-</div><div class="muted" id="rWl">-</div></div>
+    <div class="card"><div class="muted">Kelembapan Udara</div><div class="value" id="rHum">-</div><div class="muted">Hujan: <span id="rRain">-</span> mm</div></div>
+    <div class="card"><div class="muted">Level Air Toren</div><div class="value" id="rToren">-</div><div class="muted" id="rTorenS">-</div></div>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="muted">Status Pompa Utama</div><div class="value" id="rPump">-</div></div>
+    <div class="card"><div class="muted">Solenoid Terbuka</div><div class="value" id="rValve">-</div></div>
+    <div class="card"><div class="muted">Mode Kontrol</div><div class="value" id="rMode">-</div>
+      <button class="btn g" onclick="setMode('AUTO')">AUTO</button>
+      <button class="btn y" onclick="setMode('MANUAL')">MANUAL</button></div>
+  </div>
+  <h3 class="sec">KELEMBAPAN TANAH PER BEDENG</h3>
+  <div class="grid bedengGrid"></div>
+  <h3 class="sec">DETEKSI POHON DEFISIT AIR / MATI TERAKHIR</h3>
+  <div id="dashDet"></div>
+  <h3 class="sec">KONTROL MANUAL CEPAT</h3>
+  <div class="card">
+    <button class="btn g" onclick="post('/api/manual/pump/on')">Nyalakan Pompa</button>
+    <button class="btn r" onclick="post('/api/manual/pump/off')">Matikan Pompa</button>
+    <button class="btn b" onclick="post('/api/manual/valve_all/on')">Buka Semua Solenoid</button>
+    <button class="btn y" onclick="post('/api/manual/valve_all/off')">Tutup Semua Solenoid</button>
+  </div>
+  <h3 class="sec">NOTIFIKASI TERBARU</h3>
+  <div id="dashNotif"></div>
+</section>
+
+<section id="irigasi" class="page">
+  <h3 class="sec">MONITORING IRIGASI & TOREN</h3>
+  <div class="grid">
+    <div class="card"><div class="muted">Jarak Air (HC-SR04)</div><div class="value" id="iDist">-</div></div>
+    <div class="card"><div class="muted">Pompa Toren</div><div class="value" id="iTpump">-</div></div>
+    <div class="card"><div class="muted">Pompa Utama</div><div class="value" id="iPump">-</div></div>
+  </div>
+  <div class="grid bedengGrid"></div>
+</section>
+
+<section id="peta" class="page">
+  <h3 class="sec">PETA LAHAN (STATUS PER BEDENG)</h3>
+  <div class="grid" id="petaGrid"></div>
+  <div class="muted">🟢 Optimal (≥70%) 🟡 Perlu Air (40–69%) 🔴 Kering (&lt;40%) ⚪ Belum Tersambung</div>
+</section>
+
+<section id="drone" class="page">
+  <h3 class="sec">DETEKSI POHON MATI / DEFISIT (BLOK → BEDENG → POHON)</h3>
+  <table><tr><th>Blok</th><th>Bedeng</th><th>Pohon</th><th>Waktu</th><th>Hasil</th><th>Foto</th></tr>
+  <tbody id="detTable"></tbody></table>
+</section>
+
+<section id="cek" class="page">
+  <h3 class="sec">PENGECEKAN POHON (FOTO / KAMERA)</h3>
+  <form class="up" id="upForm">
+    <input name="blok" placeholder="Blok (mis. A1) — atau nama file 'A1,1,2'">
+    <input name="bedeng" placeholder="Bedeng (mis. 1)">
+    <input name="pohon" placeholder="Pohon (mis. 2)">
+    <input type="file" name="file" accept="image/*">
+    <button class="btn p" id="upBtn">Proses Deteksi (best.pt)</button>
+  </form>
+  <div class="card" style="margin:10px 0;max-width:520px">
+    <button type="button" class="btn b" onclick="openCam()">📷 Buka Kamera</button>
+    <button type="button" class="btn y" onclick="closeCam()">Tutup Kamera</button>
+    <div id="camBox" style="display:none;margin-top:8px">
+      <video id="cam" autoplay playsinline style="width:100%;border-radius:10px"></video>
+      <button type="button" class="btn g" id="camBtn" onclick="captureDetect()" style="margin-top:8px">📸 Ambil Foto & Deteksi</button>
+    </div>
+  </div>
+  <h3 class="sec">HASIL TERAKHIR</h3>
+  <div id="cekResult"></div>
+</section>
+<section id="grafik" class="page">
+  <h3 class="sec">KELEMBAPAN HARIAN — PER NODE & RATA-RATA (7 HARI)</h3>
+  <div class="card">
+    <div id="chartMoist" class="chart"></div>
+    <div id="chartMoistLegend" class="legend"></div>
+  </div>
+
+  <h3 class="sec">PENYIRAMAN — MENIT PER HARI (7 HARI)</h3>
+  <div class="card">
+    <div id="chartIrr" class="chart"></div>
+    <div id="chartIrrLegend" class="legend"></div>
+  </div>
+</section>
+<section id="riwayat" class="page">
+  <h3 class="sec">RIWAYAT PENYIRAMAN</h3>
+  <table><tr><th>Mulai</th><th>Selesai</th><th>Durasi</th><th>Mode</th></tr><tbody id="histBody"></tbody></table>
+</section>
+
+<section id="kontrol" class="page">
+  <h3 class="sec">KONTROL MANUAL LENGKAP</h3>
+  <div class="card">
+    <button class="btn g" onclick="post('/api/manual/pump/on')">Pompa Utama ON</button>
+    <button class="btn r" onclick="post('/api/manual/pump/off')">Pompa Utama OFF</button>
+    <button class="btn g" onclick="post('/api/manual/tpump/on')">Pompa Toren ON</button>
+    <button class="btn r" onclick="post('/api/manual/tpump/off')">Pompa Toren OFF</button>
+  </div>
+  <h3 class="sec">SOLENOID PER BEDENG</h3>
+  <div id="valveList"></div>
+</section>
+
+<section id="notif" class="page"><h3 class="sec">SEMUA NOTIFIKASI</h3><div id="allNotif"></div></section>
+
+<section id="aturan" class="page">
+  <h3 class="sec">PENGATURAN THRESHOLD</h3>
+  <form class="up" id="cfgForm">
+    <label class="muted">Jadwal harian (HH:MM)<input name="sched_time"></label>
+    <label class="muted">Jadwal: siram jika kelembapan &lt; (%)<input name="sched_below"></label>
+    <label class="muted" style="display:flex;gap:8px;align-items:center">
+  <input type="checkbox" name="sched_enabled" style="width:auto"> Aktifkan jadwal harian</label>
+    <label class="muted">Siram ON jika &lt; (%)<input name="soil_on"></label>
+    <label class="muted">Siram OFF jika &gt; (%)<input name="soil_off"></label>
+    <label class="muted">Pompa toren ON jika jarak &gt; (cm)<input name="tank_on"></label>
+    <label class="muted">Pompa toren OFF jika &lt;= (cm)<input name="tank_off"></label>
+    <label class="muted">Tinggi toren (cm)<input name="tank_height"></label>
+    <button class="btn b">Simpan</button>
+  </form>
+</section>
+</main>
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
